@@ -14,6 +14,18 @@ source .env
 
 # compute the sound given the base sound, the day, the month, the year
 
+# OLDSOUND is a file we'll test to determine if the bot has uploaded some other sound with a
+# different id. If the file exists, we attempt to read its content as a sound id, and we try to
+# remove it
+OLDSOUND=".OLDSOUND"
+
+if [ -f $OLDSOUND ]; then
+    OLDSOUNDID=$(cat $OLDSOUND)
+    curl -X DELETE "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds/${OLDSOUNDID}" \
+        -H "Authorization: $TOKEN_ID"
+    rm -f $OLDSOUND
+fi
+
 function get_delay() {
     ffprobe -v error -show_entries format=duration -of csv=p=0 $1 | awk '{printf "%d\n", $1 * 1000}'
 }
@@ -60,4 +72,5 @@ SOUND_B64=$(base64 -w 0 ./$OUTSOUND)
 curl -X POST "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds" \
     -H "Authorization: $TOKEN_ID" \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"$SOUND_NAME\",\"emoji_name\":\"🎺\",\"sound\":\"data:audio/mpeg;base64,${SOUND_B64}\"}"
+    -d "{\"name\":\"$SOUND_NAME\",\"emoji_name\":\"🎺\",\"sound\":\"data:audio/mpeg;base64,${SOUND_B64}\"}" \
+    | jq -r '.sound_id' > ${OLDSOUND}
