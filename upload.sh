@@ -37,8 +37,10 @@ SEPTEMBER_SHORT="./audio/september_do_you_remember.mp3"
 SEPTEMBER_LENGTH_MS=$(get_delay $SEPTEMBER_SHORT)
 
 DELAY_MS=$(($SEPTEMBER_LENGTH_MS - $YEAR_LENGTH_MS - $MONTH_LENGTH_MS - $DAY_LENGTH_MS + 150))
+OUTSOUND="outsound.mp3"
 
 ffmpeg \
+  -y \
   -i ${SEPTEMBER_SHORT} \
   -i ${MONTH_FILE} \
   -i ${DAY_FILE} \
@@ -51,11 +53,11 @@ ffmpeg \
       [0:a]volume='if(lt(t,$DELAY_MS),5.0,1.8)'[september];
       [september][bass]amix=inputs=2[out]
     " \
-  -map "[out]" ${SOUND_NAME}.mp3
+  -map "[out]" $OUTSOUND
 
-exit 0
+SOUND_B64=$(base64 -w 0 ./$OUTSOUND)
 
 curl -X POST "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds" \
-    -H "Authorized: $TOKEN_ID" \
-    -F "name=$SOUND_NAME" \
-    -F "sound=@./computed-sound.mp3;type=audio/mpeg"
+    -H "Authorization: $TOKEN_ID" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"$SOUND_NAME\",\"emoji_name\":\"🎺\",\"sound\":\"data:audio/mpeg;base64,${SOUND_B64}\"}"
