@@ -17,13 +17,14 @@ source .env
 # OLDSOUND is a file we'll test to determine if the bot has uploaded some other sound with a
 # different id. If the file exists, we attempt to read its content as a sound id, and we try to
 # remove it
+#
+# NOTE As of 03/31/2026, we want to actually just keep the old sound, so people can favorite it.
 OLDSOUND=".OLDSOUND"
 
 if [ -f $OLDSOUND ]; then
     OLDSOUNDID=$(cat $OLDSOUND)
-    curl -X DELETE "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds/${OLDSOUNDID}" \
-        -H "Authorization: $TOKEN_ID"
-    rm -f $OLDSOUND
+else
+    OLDSOUNDID=""
 fi
 
 function get_delay() {
@@ -69,8 +70,19 @@ ffmpeg \
 
 SOUND_B64=$(base64 -w 0 ./$OUTSOUND)
 
-curl -X POST "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds" \
-    -H "Authorization: $TOKEN_ID" \
-    -H "Content-Type: application/json" \
-    -d "{\"name\":\"$SOUND_NAME\",\"emoji_name\":\"🎺\",\"sound\":\"data:audio/mpeg;base64,${SOUND_B64}\"}" \
-    | jq -r '.sound_id' > ${OLDSOUND}
+if [[ -z "${OLDSOUNDID}" ]]; then # create a new sound
+    echo "creating new sound!"
+    curl -X POST "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds" \
+        -H "Authorization: $TOKEN_ID" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"$SOUND_NAME\",\"emoji_name\":\"🎺\",\"sound\":\"data:audio/mpeg;base64,${SOUND_B64}\"}" \
+        | jq -r '.sound_id' > $OLDSOUND
+    echo "new sound id: " $(cat $OLDSOUND)
+else
+    echo "updating sound ${OLDSOUNDID}"
+    curl -X PATCH "https://discord.com/api/v10/guilds/$GUILD_ID/soundboard-sounds/${OLDSOUNDID}" \
+        -H "Authorization: $TOKEN_ID" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"$SOUND_NAME\",\"emoji_name\":\"🎺\",\"sound\":\"data:audio/mpeg;base64,${SOUND_B64}\"}" \
+        | jq -r '.sound_id' > ${OLDSOUND}
+fi
